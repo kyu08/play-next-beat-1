@@ -14,7 +14,7 @@ case class TweetFormData(content: String)
 
 @Singleton
 class TweetController @Inject()(val controllerComponents: ControllerComponents) extends  BaseController with I18nSupport {
-  val tweets: Seq[Tweet] = (1L to 10L).map(i => Tweet(Some(i), s"test tweet${i.toString}"))
+  val tweets = scala.collection.mutable.ArrayBuffer((1L to 10L).map(i => Tweet(Some(i), s"test tweet${i.toString}")): _*)
   val form = Form(
     mapping(
       "content" -> nonEmptyText(maxLength = 140)
@@ -23,11 +23,22 @@ class TweetController @Inject()(val controllerComponents: ControllerComponents) 
 
   // コンパイルエラー回避用に何もしない登録用のstoreメソッドも作成
   def store() = Action { implicit request: Request[AnyContent] =>
-    NoContent
+    // 左が失敗で右が成功
+    form.bindFromRequest().fold(
+      (formWithErrors: Form[TweetFormData]) => {
+        BadRequest(views.html.tweet.store(formWithErrors))
+      },
+
+      (tweetFormData: TweetFormData) => {
+      tweets += Tweet(Some(tweets.size + 1L), tweetFormData.content)
+      Redirect("/tweet/list")
+      }
+    )
   }
 
   def list() = Action { implicit request: Request[AnyContent] =>
-    Ok(views.html.tweet.list(tweets))
+    println(1)
+    Ok(views.html.tweet.list(tweets.toSeq))
   }
 
   def show(id: Long) = Action { implicit request: Request[AnyContent] =>
